@@ -18,8 +18,8 @@ struct Position {
 constexpr Position size { 20, 20 };
 
 std::mt19937 rng(std::random_device {}());
-std::uniform_int_distribution<> distX(0, size.x - 1);
-std::uniform_int_distribution<> distY(0, size.y - 1);
+std::uniform_int_distribution distX(0, size.x - 1);
+std::uniform_int_distribution distY(0, size.y - 1);
 
 Position apple { distX(rng), distY(rng) };
 
