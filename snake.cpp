@@ -27,7 +27,6 @@ std::deque<Position> body { { distX(rng), distY(rng) } };
 Position direction { 0, 0 };
 
 int score = 0;
-bool running = true;
 
 int main() {
 	termios cooked;
@@ -39,7 +38,7 @@ int main() {
 	fcntl(STDIN_FILENO, F_SETFL, blocking | O_NONBLOCK);
 	std::cout << "\033[?25l";
 
-	while (running) {
+	while (true) {
 		const Position head { (body[0].x + direction.x + size.x) % size.x, (body[0].y + direction.y + size.y) % size.y };
 
 		if (head.x == apple.x && head.y == apple.y) {
@@ -50,7 +49,7 @@ int main() {
 		if (std::find_if(body.begin() + 1, body.end(), [&](const Position& part) {
 			return part.x == head.x && part.y == head.y;
 		}) != body.end())
-			break;
+			goto Reset;
 		body.push_front(head);
 
 		std::string display;
@@ -59,10 +58,9 @@ int main() {
 				display += ". ";
 			display += "\r\n";
 		}
-		const std::size_t max = display.size() - 2;
 		for (const Position& part: body)
-			display[max - (part.y + 1) * size.x * 2 + part.x * 2 - part.y * 2] = '#';
-		display[max - (apple.y + 1) * size.x * 2 + apple.x * 2 - apple.y * 2] = '@';
+			display[display.size() - (part.y + 1) * size.x * 2 + part.x * 2 - (part.y + 1) * 2] = '#';
+		display[display.size() - (apple.y + 1) * size.x * 2 + apple.x * 2 - (apple.y + 1) * 2] = '@';
 
 		std::cout << "\033[2J\033[HScore: " << score << "\r\n" << display;
 		std::cout.flush();
@@ -88,11 +86,12 @@ int main() {
 					direction = { 0, -1 };
 				break;
 			case 'q':
-				running = false;
+				goto Reset;
 		}
 	}
 
-	tcsetattr(STDIN_FILENO, TCSANOW, &cooked);
-	fcntl(STDIN_FILENO, F_SETFL, blocking);
+Reset:
 	std::cout << "\033[?25h";
+	fcntl(STDIN_FILENO, F_SETFL, blocking);
+	tcsetattr(STDIN_FILENO, TCSANOW, &cooked);
 }
