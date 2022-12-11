@@ -3,6 +3,7 @@
 #include <iostream> // std::cout
 #include <random> // std::mt19937, std::random_device, std::uniform_int_distribution
 #include <thread> // std::this_thread
+#include <vector> // std::vector
 #include <xieite/console/NonBlockLock.hpp>
 #include <xieite/console/RawLock.hpp>
 #include <xieite/console/erasors.hpp>
