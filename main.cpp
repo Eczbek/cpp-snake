@@ -5,7 +5,6 @@
 #include <thread> // std::this_thread
 #include <vector> // std::vector
 #include <xieite/console/Canvas.hpp>
-#include <xieite/console/NonBlockLock.hpp>
 #include <xieite/console/RawLock.hpp>
 #include <xieite/console/codes.hpp>
 #include <xieite/console/getKeyPress.hpp>
@@ -37,77 +36,72 @@ int main() {
 	std::cout
 		<< xieite::console::saveScreen
 		<< xieite::console::hideCursor;
-	
-	{
-		xieite::console::NonBlockLock nonBlockLock;
-		xieite::console::RawLock rawLock;
 
-		bool running = true;
-		while (running) {
-			const Position head {
-				(body[0].x + direction.x + size.x) % size.x,
-				(body[0].y + direction.y + size.y) % size.y
-			};
+	bool running = true;
+	while (running) {
+		const Position head {
+			(body[0].x + direction.x + size.x) % size.x,
+			(body[0].y + direction.y + size.y) % size.y
+		};
 
-			if (head.x == apple.x && head.y == apple.y) {
-				apple = { distX(rng), distY(rng) };
-				++score;
-			} else
-				body.pop_back();
+		if (head.x == apple.x && head.y == apple.y) {
+			apple = { distX(rng), distY(rng) };
+			++score;
+		} else
+			body.pop_back();
 
-			for (const Position part : body)
-				if (part.x == head.x && part.y == head.y) {
-					running = false;
-					break;
-				}
-			if (running)
-				body.push_front(head);
+		for (const Position part : body)
+			if (part.x == head.x && part.y == head.y) {
+				running = false;
+				break;
+			}
+		if (running)
+			body.push_front(head);
 
-			xieite::console::Canvas canvas(size.y, size.x, xieite::graphics::colors::azure);
-			for (const Position part : body)
-				canvas.draw(part.x, part.y, xieite::graphics::colors::lime);
-			canvas.draw(body[0].x, body[0].y, xieite::graphics::colors::green);
-			canvas.draw(apple.x, apple.y, xieite::graphics::colors::red);
+		xieite::console::Canvas canvas(size.y, size.x, xieite::graphics::colors::azure);
+		for (const Position part : body)
+			canvas.draw(part.x, part.y, xieite::graphics::colors::lime);
+		canvas.draw(body[0].x, body[0].y, xieite::graphics::colors::green);
+		canvas.draw(apple.x, apple.y, xieite::graphics::colors::red);
 		
-			std::cout
-				<< xieite::console::eraseScreen
-				<< xieite::console::setCursorPosition({ 0, 0 })
-				<< "Score: " << score << "\n\r"
-				<< canvas.string(1, 0);
-			std::cout.flush();
-
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-			const std::string input = xieite::console::readBuffer();
-			if (input.size())
-				switch (input.back()) {
-				case 'q':
-					running = false;
-					break;
-				case 'd':
-					if (!direction.x)
-						direction = { 1, 0 };
-					break;
-				case 'a':
-					if (!direction.x)
-						direction = { -1, 0 };
-					break;
-				case 'w':
-					if (!direction.y)
-						direction = { 0, 1 };
-					break;
-				case 's':
-					if (!direction.y)
-						direction = { 0, -1 };
-					break;
-				}
-		}
-
-		std::cout << "\n\rPress any key to exit";
+		std::cout
+			<< xieite::console::eraseScreen
+			<< xieite::console::setCursorPosition({ 0, 0 })
+			<< "Score: " << score << "\n\r"
+			<< canvas.string(1, 0);
 		std::cout.flush();
-
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+		{
+			xieite::console::RawLock rawLock(false);
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+		const std::string input = xieite::console::readBuffer();
+		if (input.size())
+			switch (input.back()) {
+			case 'q':
+				running = false;
+				break;
+			case 'd':
+				if (!direction.x)
+					direction = { 1, 0 };
+				break;
+			case 'a':
+				if (!direction.x)
+					direction = { -1, 0 };
+				break;
+			case 'w':
+				if (!direction.y)
+					direction = { 0, 1 };
+				break;
+			case 's':
+				if (!direction.y)
+					direction = { 0, -1 };
+				break;
+			}
 	}
+
+	std::cout << "\n\rPress any key to exit";
+	std::cout.flush();
+	std::this_thread::sleep_for(std::chrono::seconds(1));
 	xieite::console::getKeyPress();
 
 	std::cout
