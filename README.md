@@ -8,3 +8,10 @@ Requires [xieite](https://github.com/Eczbek/xieite) library
 <br/>
 
 ![Screenshot](https://raw.githubusercontent.com/Eczbek/Eczbek/main/Screenshot_20221211_143900.png)
+
+<br/>
+
+### Controls:
+W, A, S, D for movement
+<br/>
+Q to quit
