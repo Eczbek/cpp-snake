@@ -2,13 +2,15 @@
 #include <deque> // std::deque
 #include <iostream> // std::cout
 #include <random> // std::mt19937, std::random_device, std::uniform_int_distribution
+#include <string> // std::string
 #include <thread> // std::this_thread
 #include <vector> // std::vector
-#include <xieite/console/Canvas.hpp>
 #include <xieite/console/RawLock.hpp>
 #include <xieite/console/codes.hpp>
 #include <xieite/console/getKeyPress.hpp>
 #include <xieite/console/readBuffer.hpp>
+#include <xieite/console/setBackground.hpp>
+#include <xieite/console/setCursorPosition.hpp>
 #include <xieite/graphics/Color.hpp>
 #include <xieite/graphics/colors.hpp>
 
@@ -58,17 +60,26 @@ int main() {
 		if (running)
 			body.push_front(head);
 
-		xieite::console::Canvas canvas(size.y, size.x, xieite::graphics::colors::azure);
+		std::vector<std::vector<xieite::graphics::Color>> canvas;
+		for (int x = 0; x < size.x; ++x) {
+			canvas.emplace_back();
+			for (int y = 0; y < size.y; ++y)
+				canvas[x].push_back(xieite::graphics::colors::azure);
+		}
 		for (const Position part : body)
-			canvas.draw(part.x, part.y, xieite::graphics::colors::lime);
-		canvas.draw(body[0].x, body[0].y, xieite::graphics::colors::green);
-		canvas.draw(apple.x, apple.y, xieite::graphics::colors::red);
+			canvas[part.x][part.y] = xieite::graphics::colors::lime;
+		canvas[body[0].x][body[0].y] = xieite::graphics::colors::green;
+		canvas[apple.x][apple.y] = xieite::graphics::colors::red;
 		
 		std::cout
 			<< xieite::console::eraseScreen
 			<< xieite::console::setCursorPosition({ 0, 0 })
-			<< "Score: " << score << "\n\r"
-			<< canvas.string(1, 0);
+			<< "Score: " << score << "\n\r";
+		for (int y = size.y; y--;) {
+			for (int x = 0; x < size.x; ++x)
+				std::cout << xieite::console::setBackground(canvas[x][y]) << "  ";
+			std::cout << xieite::console::resetBackground << "\n\r";
+		}
 		std::cout.flush();
 		{
 			xieite::console::RawLock rawLock(false);
