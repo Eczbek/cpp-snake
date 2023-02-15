@@ -13,6 +13,7 @@
 #include <xieite/console/setCursorPosition.hpp>
 #include <xieite/graphics/Color.hpp>
 #include <xieite/graphics/colors.hpp>
+#include <xieite/string/toLowercase.hpp>
 
 struct Position {
 	int x;
@@ -36,8 +37,8 @@ int main() {
 	int score = 0;
 
 	std::cout
-		<< xieite::console::saveScreen
-		<< xieite::console::hideCursor;
+		<< xieite::console::codes::saveScreen
+		<< xieite::console::codes::hideCursor;
 
 	bool running = true;
 	while (running) {
@@ -72,13 +73,13 @@ int main() {
 		canvas[apple.x][apple.y] = xieite::graphics::colors::red;
 		
 		std::cout
-			<< xieite::console::eraseScreen
+			<< xieite::console::codes::eraseScreen
 			<< xieite::console::setCursorPosition({ 0, 0 })
 			<< "Score: " << score << "\n\r";
 		for (int y = size.y; y--;) {
 			for (int x = 0; x < size.x; ++x)
 				std::cout << xieite::console::setBackground(canvas[x][y]) << "  ";
-			std::cout << xieite::console::resetBackground << "\n\r";
+			std::cout << xieite::console::codes::resetBackground << "\n\r";
 		}
 		std::cout.flush();
 		{
@@ -87,7 +88,7 @@ int main() {
 		}
 		const std::string input = xieite::console::readBuffer();
 		if (input.size())
-			switch (input.back()) {
+			switch (xieite::string::toLowercase(input.back())) {
 			case 'q':
 				running = false;
 				break;
@@ -116,6 +117,6 @@ int main() {
 	xieite::console::getKeyPress();
 
 	std::cout
-		<< xieite::console::showCursor
-		<< xieite::console::restoreScreen;
+		<< xieite::console::codes::showCursor
+		<< xieite::console::codes::restoreScreen;
 }
