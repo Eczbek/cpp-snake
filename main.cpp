@@ -74,12 +74,7 @@ int main() {
 		127,
 		255
 	};
-	std::vector<std::vector<Color>> canvas;
-	for (int x = 0; x < gameSize.x; ++x) {
-		std::vector<Color>& column = canvas.emplace_back();
-		for (int y = 0; y < gameSize.y; ++y)
-			column.push_back(azure);
-	}
+	std::vector<std::vector<Color>> canvas(gameSize.x, std::vector<Color>(gameSize.y, azure));
 
 	termios cooked;
 	tcgetattr(STDIN_FILENO, &cooked);
