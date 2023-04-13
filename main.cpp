@@ -1,3 +1,4 @@
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -6,7 +7,6 @@
 #include <iostream>
 #include <limits>
 #include <random>
-#include <string>
 #include <termios.h>
 #include <thread>
 #include <unistd.h>
@@ -21,6 +21,11 @@ struct Color {
 	std::uint8_t green;
 	std::uint8_t blue;
 };
+
+char readCharacter() noexcept {
+	char input;
+	return (read(STDIN_FILENO, &input, 1) > 0) ? input : 0;
+}
 
 int main() {
 	const Position gameSize {
@@ -49,55 +54,71 @@ int main() {
 		0
 	};
 
+	const Color red {
+		255,
+		0,
+		0
+	};
+	const Color lime {
+		127,
+		255,
+		0
+	};
+	const Color green {
+		0,
+		255,
+		0
+	};
+	const Color azure {
+		0,
+		127,
+		255
+	};
 	std::vector<std::vector<Color>> canvas;
 	for (int x = 0; x < gameSize.x; ++x) {
 		std::vector<Color>& column = canvas.emplace_back();
 		for (int y = 0; y < gameSize.y; ++y)
-			column.emplace_back();
+			column.push_back(azure);
 	}
-
-	bool running = true;
 
 	termios cooked;
 	tcgetattr(STDIN_FILENO, &cooked);
 	termios raw = cooked;
-	cfmakeraw(&raw);
-	raw.c_lflag &= ~(ICANON);
+	raw.c_iflag &= ~(ICRNL | IXON);
+	raw.c_lflag &= ~(ICANON | ECHO | IEXTEN | ISIG);
+	raw.c_oflag &= ~(OPOST);
 	tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 	const int blocking = fcntl(STDIN_FILENO, F_GETFL);
 	fcntl(STDIN_FILENO, F_SETFL, blocking | O_NONBLOCK);
 	std::cout << "\x1b[?47h\x1b[?25l";
 
-	while (running) {
+	bool gameOver = false;
+	while (!gameOver) {
 		const Position head {
 			(body[0].x + currentDirection.x + gameSize.x) % gameSize.x,
 			(body[0].y + currentDirection.y + gameSize.y) % gameSize.y
 		};
 
 		if ((head.x == apple.x) && (head.y == apple.y)) {
+			canvas[apple.x][apple.y] = azure;
 			apple.x = randomDistributionX(randomEngine);
 			apple.y = randomDistributionY(randomEngine);
-		} else
+		} else {
+			canvas[body.back().x][body.back().y] = azure;
 			body.pop_back();
-		
-		for (const Position part : body)
-			if ((head.x == part.x) && (head.y == part.y)) {
-				running = false;
+		}
+		for (const Position part : body) {
+			if ((part.x == head.x) && (part.y == head.y)) {
+				gameOver = true;
 				break;
 			}
-
-		if (!running)
+			canvas[part.x][part.y] = lime;
+		}
+		if (gameOver)
 			break;
-
 		body.push_front(head);
-
-		for (int x = 0; x < gameSize.x; ++x)
-			for (int y = 0; y < gameSize.y; ++y)
-				canvas[x][y] = { 0, 127, 255 };
-		for (const Position part : body)
-			canvas[part.x][part.y] = { 127, 255, 0 };
-		canvas[head.x][head.y] = { 0, 255, 0 };
-		canvas[apple.x][apple.y] = { 255, 0, 0 };
+		canvas[head.x][head.y] = green;
+		canvas[apple.x][apple.y] = red;
 
 		const std::size_t bodySize = body.size();
 		std::cout << "\x1b[2J\x1b[HScore: " << (bodySize - 1) << "\n\r";
@@ -117,66 +138,52 @@ int main() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 		Position newDirection = currentDirection;
-		std::string input;
 		while (true) {
-			char character = 0;
-			read(STDIN_FILENO, &character, 1);
-			if (!character)
+			const char input = readCharacter();
+			if (static_cast<char>(std::tolower(static_cast<unsigned char>(input))) == 'q')
+				gameOver = true;
+			if (!input || gameOver)
 				break;
-			input += character;
-		}
-		const std::size_t inputSize = input.size();
-		for (std::size_t i = 0; i < inputSize; ++i) {
-			if (static_cast<char>(std::tolower(static_cast<unsigned char>(input[i]))) == 'q')
-				running = false;
-			else if ((i < inputSize - 2) && (input[++i] == '['))
-				switch (input[++i]) {
+			if ((input == '\x1b') && (readCharacter() == '['))
+				switch (readCharacter()) {
 					case 'A':
-						if (!currentDirection.y || (bodySize == 1)) {
+						if (!currentDirection.y || (bodySize < 2)) {
 							newDirection.x = 0;
 							newDirection.y = 1;
 						}
 						break;
 					case 'B':
-						if (!currentDirection.y || (bodySize == 1)) {
+						if (!currentDirection.y || (bodySize < 2)) {
 							newDirection.x = 0;
 							newDirection.y = -1;
 						}
 						break;
 					case 'C':
-						if (!currentDirection.x || (bodySize == 1)) {
+						if (!currentDirection.x || (bodySize < 2)) {
 							newDirection.x = 1;
 							newDirection.y = 0;
 						}
 						break;
 					case 'D':
-						if (!currentDirection.x || (bodySize == 1)) {
+						if (!currentDirection.x || (bodySize < 2)) {
 							newDirection.x = -1;
 							newDirection.y = 0;
 						}
-						break;
 				}
 		}
 		currentDirection = newDirection;
 	}
 
 	std::cout << "\x1b[2K\x1b[0G";
-	if (running)
+	if (!gameOver)
 		std::cout << "You win! ";
 	std::cout << "Press any key to exit";
 	std::cout.flush();
 	std::this_thread::sleep_for(std::chrono::seconds(1));
-	while (true) {
-		char character = 0;
-		read(STDIN_FILENO, &character, 1);
-		if (!character)
-			break;
-	}
+	while (readCharacter());
 	fcntl(STDIN_FILENO, F_SETFL, blocking);
 	std::cin.get();
 
 	tcsetattr(STDIN_FILENO, TCSANOW, &cooked);
 	std::cout << "\x1b[?25h\x1b[?47l";
-
-	return 0;
 }
