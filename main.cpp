@@ -109,8 +109,9 @@ int main() {
 			}
 			canvas[part.x][part.y] = lime;
 		}
-		if (gameOver)
+		if (gameOver) {
 			break;
+		}
 		body.push_front(head);
 		canvas[head.x][head.y] = green;
 		canvas[apple.x][apple.y] = red;
@@ -118,28 +119,32 @@ int main() {
 		const std::size_t bodySize = body.size();
 		std::cout << "\x1b[2J\x1b[HScore: " << (bodySize - 1) << "\n\r";
 		for (int y = gameSize.y; y--;) {
-			for (int x = 0; x < gameSize.x; ++x)
+			for (int x = 0; x < gameSize.x; ++x) {
 				std::cout << "\x1b[48;2;"
 					<< static_cast<int>(canvas[x][y].red) << ';'
 					<< static_cast<int>(canvas[x][y].green) << ';'
 					<< static_cast<int>(canvas[x][y].blue) << "m  ";
+			}
 			std::cout << "\x1b[0m\n\r";
 		}
 		std::cout << "Use arrow keys to move, press q to quit";
 		std::cout.flush();
-		if (bodySize == (gameSize.x * gameSize.y))
+		if (bodySize == (gameSize.x * gameSize.y)) {
 			break;
+		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 		Position newDirection = currentDirection;
 		while (true) {
 			const char input = readCharacter();
-			if (static_cast<char>(std::tolower(static_cast<unsigned char>(input))) == 'q')
+			if (static_cast<char>(std::tolower(static_cast<unsigned char>(input))) == 'q') {
 				gameOver = true;
-			if (!input || gameOver)
+			}
+			if (!input || gameOver) {
 				break;
-			if ((input == '\x1b') && (readCharacter() == '['))
+			}
+			if ((input == '\x1b') && (readCharacter() == '[')) {
 				switch (readCharacter()) {
 					case 'A':
 						if (!currentDirection.y || (bodySize < 2)) {
@@ -165,13 +170,15 @@ int main() {
 							newDirection.y = 0;
 						}
 				}
+			}
 		}
 		currentDirection = newDirection;
 	}
 
 	std::cout << "\x1b[2K\x1b[0G";
-	if (!gameOver)
+	if (!gameOver) {
 		std::cout << "You win! ";
+	}
 	std::cout << "Press any key to exit";
 	std::cout.flush();
 	std::this_thread::sleep_for(std::chrono::seconds(1));
