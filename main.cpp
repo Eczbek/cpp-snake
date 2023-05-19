@@ -117,7 +117,7 @@ int main() {
 		canvas[apple.x][apple.y] = red;
 
 		const std::size_t bodySize = body.size();
-		std::cout << "\x1b[2J\x1b[HScore: " << (bodySize - 1) << "\n\r";
+		std::cout << "\x1b[HScore: " << (bodySize - 1) << "\n\r";
 		for (int y = gameSize.y; y--;) {
 			for (int x = 0; x < gameSize.x; ++x) {
 				std::cout << "\x1b[48;2;"
