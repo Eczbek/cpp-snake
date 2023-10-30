@@ -85,7 +85,7 @@ int main() {
 	tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 	const int blocking = fcntl(STDIN_FILENO, F_GETFL);
 	fcntl(STDIN_FILENO, F_SETFL, blocking | O_NONBLOCK);
-	std::cout << "\x1b[?47h\x1b[?25l";
+	std::cout << "\x1b[s\x1b[?47h\x1b[?25l";
 
 	bool gameOver = false;
 	while (!gameOver) {
@@ -187,5 +187,5 @@ int main() {
 	std::cin.get();
 
 	tcsetattr(STDIN_FILENO, TCSANOW, &cooked);
-	std::cout << "\x1b[?25h\x1b[?47l";
+	std::cout << "\x1b[?25h\x1b[?47l\x1b[u";
 }
