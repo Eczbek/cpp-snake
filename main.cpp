@@ -102,12 +102,14 @@ int main() {
 			canvas[body.back().x][body.back().y] = azure;
 			body.pop_back();
 		}
+		bool primary = false;
 		for (const Position part : body) {
 			if ((part.x == head.x) && (part.y == head.y)) {
 				gameOver = true;
 				break;
 			}
-			canvas[part.x][part.y] = lime;
+			canvas[part.x][part.y] = primary ? green : lime;
+			primary = !primary;
 		}
 		if (gameOver) {
 			break;
