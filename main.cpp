@@ -11,77 +11,62 @@
 #include <thread>
 #include <unistd.h>
 
+enum struct Direction {
+	none,
+	right,
+	left,
+	up,
+	down
+};
+
 struct Position {
-	int x;
-	int y;
+	std::size_t x;
+	std::size_t y;
+
+	constexpr Position(const std::size_t x, const std::size_t y) noexcept
+	: x(x), y(y) {}
 };
 
 struct Color {
 	std::uint8_t red;
 	std::uint8_t green;
 	std::uint8_t blue;
+
+	constexpr Color(const std::uint8_t red, const std::uint8_t green, const std::uint8_t blue) noexcept
+	: red(red), green(green), blue(blue) {}
 };
 
-char readCharacter() noexcept {
+inline char readCharacter() noexcept {
 	char input;
-	return (read(STDIN_FILENO, &input, 1) > 0) ? input : 0;
+	return (read(STDIN_FILENO, &input, 1) > 0) ? input : '\0';
+}
+
+inline Position randomPosition(const Position size) noexcept {
+	static std::mt19937 engine = std::mt19937(std::random_device()());
+	return Position(std::uniform_int_distribution<std::size_t>(0, size.x - 1)(engine), std::uniform_int_distribution<std::size_t>(0, size.y - 1)(engine));
 }
 
 int main() {
-	const Position gameSize {
-		20,
-		20
-	};
+	static constexpr Color red = Color(255, 0, 0);
+	static constexpr Color lime = Color(127, 255, 0);
+	static constexpr Color green = Color(0, 255, 0);
+	static constexpr Color azure = Color(0, 127, 255);
 
-	std::default_random_engine randomEngine(std::random_device {}());
-	std::uniform_int_distribution<int> randomDistributionX(0, gameSize.x - 1);
-	std::uniform_int_distribution<int> randomDistributionY(0, gameSize.y - 1);
+	static constexpr Position gameSize  = Position(20, 20);
+	Position apple = randomPosition(gameSize);
+	std::deque<Position> body = {
+		randomPosition(gameSize)
+	};
+	Direction currentDirection = Direction::none;
 
-	Position apple {
-		randomDistributionX(randomEngine),
-		randomDistributionY(randomEngine)
-	};
-
-	std::deque<Position> body {
-		{
-			randomDistributionX(randomEngine),
-			randomDistributionY(randomEngine)
-		}
-	};
-
-	Position currentDirection {
-		0,
-		0
-	};
-
-	const Color red {
-		255,
-		0,
-		0
-	};
-	const Color lime {
-		127,
-		255,
-		0
-	};
-	const Color green {
-		0,
-		255,
-		0
-	};
-	const Color azure {
-		0,
-		127,
-		255
-	};
-	std::vector<std::vector<Color>> canvas(gameSize.x, std::vector<Color>(gameSize.y, azure));
+	auto canvas = std::vector<std::vector<Color>>(gameSize.x, std::vector<Color>(gameSize.y, azure));
 
 	termios cooked;
 	tcgetattr(STDIN_FILENO, &cooked);
 	termios raw = cooked;
-	raw.c_iflag &= ~(ICRNL | IXON);
-	raw.c_lflag &= ~(ICANON | ECHO | IEXTEN | ISIG);
-	raw.c_oflag &= ~(OPOST);
+	raw.c_iflag &= ~static_cast<unsigned int>(ICRNL | IXON);
+	raw.c_lflag &= ~static_cast<unsigned int>(ICANON | ECHO | IEXTEN | ISIG);
+	raw.c_oflag &= ~static_cast<unsigned int>(OPOST);
 	tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 	const int blocking = fcntl(STDIN_FILENO, F_GETFL);
 	fcntl(STDIN_FILENO, F_SETFL, blocking | O_NONBLOCK);
@@ -89,15 +74,27 @@ int main() {
 
 	bool gameOver = false;
 	while (!gameOver) {
-		const Position head {
-			(body[0].x + currentDirection.x + gameSize.x) % gameSize.x,
-			(body[0].y + currentDirection.y + gameSize.y) % gameSize.y
-		};
+		Position head = body[0];
+		switch (currentDirection) {
+		case Direction::right:
+			head.x = (head.x + 1) % gameSize.x;
+			break;
+		case Direction::left:
+			head.x = (head.x + gameSize.x - 1) % gameSize.x;
+			break;
+		case Direction::up:
+			head.y = (head.y + 1) % gameSize.y;
+			break;
+		case Direction::down:
+			head.y = (head.y + gameSize.y - 1) % gameSize.y;
+			break;
+		default:
+			break;
+		}
 
 		if ((head.x == apple.x) && (head.y == apple.y)) {
 			canvas[apple.x][apple.y] = azure;
-			apple.x = randomDistributionX(randomEngine);
-			apple.y = randomDistributionY(randomEngine);
+			apple = randomPosition(gameSize);
 		} else {
 			canvas[body.back().x][body.back().y] = azure;
 			body.pop_back();
@@ -120,8 +117,8 @@ int main() {
 
 		const std::size_t bodySize = body.size();
 		std::cout << "\x1b[HScore: " << (bodySize - 1) << "\n\r";
-		for (int y = gameSize.y; y--;) {
-			for (int x = 0; x < gameSize.x; ++x) {
+		for (std::size_t y = gameSize.y; y--;) {
+			for (std::size_t x = 0; x < gameSize.x; ++x) {
 				std::cout << "\x1b[48;2;"
 					<< static_cast<int>(canvas[x][y].red) << ';'
 					<< static_cast<int>(canvas[x][y].green) << ';'
@@ -137,7 +134,7 @@ int main() {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-		Position newDirection = currentDirection;
+		Direction newDirection = currentDirection;
 		while (true) {
 			const char input = readCharacter();
 			if (static_cast<char>(std::tolower(static_cast<unsigned char>(input))) == 'q') {
@@ -149,27 +146,23 @@ int main() {
 			if ((input == '\x1b') && (readCharacter() == '[')) {
 				switch (readCharacter()) {
 					case 'A':
-						if (!currentDirection.y || (bodySize < 2)) {
-							newDirection.x = 0;
-							newDirection.y = 1;
+						if ((currentDirection != Direction::down) || (bodySize < 2)) {
+							newDirection = Direction::up;
 						}
 						break;
 					case 'B':
-						if (!currentDirection.y || (bodySize < 2)) {
-							newDirection.x = 0;
-							newDirection.y = -1;
+						if ((currentDirection != Direction::up) || (bodySize < 2)) {
+							newDirection = Direction::down;
 						}
 						break;
 					case 'C':
-						if (!currentDirection.x || (bodySize < 2)) {
-							newDirection.x = 1;
-							newDirection.y = 0;
+						if ((currentDirection != Direction::left) || (bodySize < 2)) {
+							newDirection = Direction::right;
 						}
 						break;
 					case 'D':
-						if (!currentDirection.x || (bodySize < 2)) {
-							newDirection.x = -1;
-							newDirection.y = 0;
+						if ((currentDirection != Direction::right) || (bodySize < 2)) {
+							newDirection = Direction::left;
 						}
 				}
 			}
