@@ -11,8 +11,6 @@
 
 int main() {
 	using namespace std::literals;
-
-	static constexpr xieite::vec2<int> game_size = { 20, 20 };
 	
 	xieite::term term;
 	term.block(false);
@@ -23,7 +21,8 @@ int main() {
 	term.cursor_alt(true);
 	term.screen_alt(true);
 	term.cursor_invis(true);
-	term.clear_screen();
+
+	static constexpr xieite::vec2<int> game_size = { 20, 20 };
 
 	const auto set_color_at = [&term](xieite::vec2<int> pos, const xieite::color3& color) noexcept -> void {
 		term.set_cursor(pos.y + 1, pos.x * 2);
@@ -31,6 +30,7 @@ int main() {
 		std::fputs("  ", term.out);
 	};
 
+	term.clear_screen();
 	for (int y = 0; y < game_size.y; ++y) {
 		for (int x = 0; x < game_size.x; ++x) {
 			set_color_at({ x, y }, 0x007FFF);
