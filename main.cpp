@@ -112,7 +112,7 @@ int main() {
 				break;
 			default:;
 			}
-			void(term.read_str());
+			while (std::fgetc(term.in) > 0);
 		}
 	})();
 
@@ -124,7 +124,8 @@ int main() {
 	}
 	std::fputs("Press any key to exit", term.out);
 	std::fflush(term.out);
+	while (std::fgetc(term.in) > 0);
 	std::this_thread::sleep_for(500ms);
 	term.block(true);
-	void(term.read_key());
+	std::fgetc(term.in);
 }

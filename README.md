@@ -4,10 +4,10 @@ A text-based snake game
 ## Usage
 ```bash
 git clone https://github.com/Eczbek/cpp-snake
-mkdir cpp-snake/build && cd $_
-cmake ..
-make
-./snake
+cd cpp-snake
+cmake -B build -S . -G Ninja
+cmake --build build
+./build/snake
 ```
 
 &nbsp;
