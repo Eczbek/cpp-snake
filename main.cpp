@@ -2,185 +2,154 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
+#include <cstdio>
 #include <fcntl.h>
-#include <iostream>
-#include <limits>
+#include <print>
 #include <random>
 #include <termios.h>
 #include <thread>
 #include <unistd.h>
 
-enum struct Direction {
-	none,
-	right,
-	left,
-	up,
-	down
-};
+using namespace std::literals;
 
-struct Position {
+struct pos_t {
 	std::size_t x;
 	std::size_t y;
 
-	constexpr Position(const std::size_t x, const std::size_t y) noexcept
-	: x(x), y(y) {}
+	[[nodiscard]] friend bool operator==(const pos_t&, const pos_t&) = default;
 };
 
-struct Color {
-	std::uint8_t red;
-	std::uint8_t green;
-	std::uint8_t blue;
+constexpr auto game_size = pos_t(20, 20);
+constexpr std::size_t snake_max = game_size.x * game_size.y;
 
-	constexpr Color(const std::uint8_t red, const std::uint8_t green, const std::uint8_t blue) noexcept
-	: red(red), green(green), blue(blue) {}
-};
-
-inline char readCharacter() noexcept {
-	char input;
-	return (read(STDIN_FILENO, &input, 1) > 0) ? input : '\0';
+pos_t rand_pos() noexcept {
+	thread_local auto rng = std::mt19937(std::random_device()());
+	return pos_t(
+		std::uniform_int_distribution<std::size_t>(0, game_size.x - 1)(rng),
+		std::uniform_int_distribution<std::size_t>(0, game_size.y - 1)(rng)
+	);
 }
 
-inline Position randomPosition(const Position size) noexcept {
-	static std::mt19937 engine = std::mt19937(std::random_device()());
-	return Position(std::uniform_int_distribution<std::size_t>(0, size.x - 1)(engine), std::uniform_int_distribution<std::size_t>(0, size.y - 1)(engine));
+struct color_t {
+	std::uint8_t r;
+	std::uint8_t g;
+	std::uint8_t b;
+};
+
+constexpr auto red = color_t(255, 0, 0);
+constexpr auto green = color_t(0, 255, 0);
+constexpr auto azure = color_t(0, 127, 255);
+
+void set_color_at(color_t color, pos_t pos) noexcept {
+	std::print("\x1B[{};{}H\x1B[48;2;{};{};{}m  ", pos.y + 2, pos.x * 2 + 1, color.r, color.g, color.b);
 }
 
 int main() {
-	static constexpr Color red = Color(255, 0, 0);
-	static constexpr Color lime = Color(127, 255, 0);
-	static constexpr Color green = Color(0, 255, 0);
-	static constexpr Color azure = Color(0, 127, 255);
+	::termios cooked_mode;
+	::tcgetattr(STDIN_FILENO, &cooked_mode);
+	::termios raw_mode = cooked_mode;
+	raw_mode.c_iflag &= ~static_cast<::tcflag_t>(ICRNL | IXON);
+	raw_mode.c_lflag &= ~static_cast<::tcflag_t>(ICANON | ECHO | IEXTEN | ISIG);
+	raw_mode.c_oflag &= ~static_cast<::tcflag_t>(OPOST);
+	::tcsetattr(STDIN_FILENO, TCSANOW, &raw_mode);
+	const int block_mode = ::fcntl(STDIN_FILENO, F_GETFL);
+	::fcntl(STDIN_FILENO, F_SETFL, block_mode | O_NONBLOCK);
+	std::fputs("\x1B[s\x1B[?47h\x1B[?25l\x1B[2J", stdout);
 
-	static constexpr Position gameSize  = Position(20, 20);
-	Position apple = randomPosition(gameSize);
-	std::deque<Position> body = {
-		randomPosition(gameSize)
-	};
-	Direction currentDirection = Direction::none;
-
-	auto canvas = std::vector<std::vector<Color>>(gameSize.x, std::vector<Color>(gameSize.y, azure));
-
-	termios cooked;
-	tcgetattr(STDIN_FILENO, &cooked);
-	termios raw = cooked;
-	raw.c_iflag &= ~static_cast<unsigned int>(ICRNL | IXON);
-	raw.c_lflag &= ~static_cast<unsigned int>(ICANON | ECHO | IEXTEN | ISIG);
-	raw.c_oflag &= ~static_cast<unsigned int>(OPOST);
-	tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-	const int blocking = fcntl(STDIN_FILENO, F_GETFL);
-	fcntl(STDIN_FILENO, F_SETFL, blocking | O_NONBLOCK);
-	std::cout << "\x1b[s\x1b[?47h\x1b[?25l";
-
-	bool gameOver = false;
-	while (!gameOver) {
-		Position head = body[0];
-		switch (currentDirection) {
-		case Direction::right:
-			head.x = (head.x + 1) % gameSize.x;
-			break;
-		case Direction::left:
-			head.x = (head.x + gameSize.x - 1) % gameSize.x;
-			break;
-		case Direction::up:
-			head.y = (head.y + 1) % gameSize.y;
-			break;
-		case Direction::down:
-			head.y = (head.y + gameSize.y - 1) % gameSize.y;
-			break;
-		default:
-			break;
+	for (size_t x = 0; x < game_size.x; ++x) {
+		for (size_t y = 0; y < game_size.y; ++y) {
+			set_color_at(azure, pos_t(x, y));
 		}
+	}
+	std::print("\x1B[0m\x1B[{}HUse arrow keys to move, press Q to quit", game_size.y + 2);
 
-		if ((head.x == apple.x) && (head.y == apple.y)) {
-			canvas[apple.x][apple.y] = azure;
-			apple = randomPosition(gameSize);
-		} else {
-			canvas[body.back().x][body.back().y] = azure;
-			body.pop_back();
-		}
-		bool primary = false;
-		for (const Position part : body) {
-			if ((part.x == head.x) && (part.y == head.y)) {
-				gameOver = true;
-				break;
-			}
-			canvas[part.x][part.y] = primary ? green : lime;
-			primary = !primary;
-		}
-		if (gameOver) {
-			break;
-		}
-		body.push_front(head);
-		canvas[head.x][head.y] = green;
-		canvas[apple.x][apple.y] = red;
-
-		const std::size_t bodySize = body.size();
-		std::cout << "\x1b[HScore: " << (bodySize - 1) << "\n\r";
-		for (std::size_t y = gameSize.y; y--;) {
-			for (std::size_t x = 0; x < gameSize.x; ++x) {
-				std::cout << "\x1b[48;2;"
-					<< static_cast<int>(canvas[x][y].red) << ';'
-					<< static_cast<int>(canvas[x][y].green) << ';'
-					<< static_cast<int>(canvas[x][y].blue) << "m  ";
-			}
-			std::cout << "\x1b[0m\n\r";
-		}
-		std::cout << "Use arrow keys to move, press q to quit";
-		std::cout.flush();
-		if (bodySize == (gameSize.x * gameSize.y)) {
-			break;
-		}
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-		Direction newDirection = currentDirection;
+	const bool win = ([] static -> bool {
+		pos_t apple = rand_pos();
+	
+		pos_t snake_body[snake_max];
+		pos_t snake_head = rand_pos();
+		std::size_t snake_start = 0;
+		std::size_t snake_end = 0;
+		std::size_t score = 0;
+		auto snake_direction = pos_t(0, 0);
+	
 		while (true) {
-			const char input = readCharacter();
-			if (static_cast<char>(std::tolower(static_cast<unsigned char>(input))) == 'q') {
-				gameOver = true;
+			std::print("\x1B[0m\x1B[HScore: {}", score);
+			if (score >= snake_max) {
+				return true;
 			}
-			if (!input || gameOver) {
-				break;
+	
+			set_color_at(green, snake_head);
+			snake_head = pos_t((snake_head.x + snake_direction.x) % game_size.x, (snake_head.y + snake_direction.y) % game_size.y);
+			snake_body[snake_start = (snake_start + 1) % snake_max] = snake_head;
+			if (snake_head == apple) {
+				++score;
+				apple = rand_pos();
+			} else {
+				const pos_t snake_tail = snake_body[snake_end++];
+				snake_end %= snake_max;
+				set_color_at(azure, snake_tail);
 			}
-			if ((input == '\x1b') && (readCharacter() == '[')) {
-				switch (readCharacter()) {
+			set_color_at(red, apple);
+			set_color_at(green, snake_head);
+	
+			for (std::size_t i = 0; i < score; ++i) {
+				const pos_t snake_part = snake_body[(snake_end + i) % snake_max];
+				if (snake_head == snake_part) {
+					return false;
+				}
+			}
+	
+			std::fflush(stdout);
+			std::this_thread::sleep_for(100ms);
+	
+			const bool can_turn_x = !snake_direction.x || (score < 1);
+			const bool can_turn_y = !snake_direction.y || (score < 1);
+			while (true) {
+				const int input = std::getchar();
+				if (std::toupper(input) == 'Q') {
+					return false;
+				}
+				if (input < 1) {
+					break;
+				}
+				if ((input == '\x1B') && (std::getchar() == '[')) {
+					switch (std::getchar()) {
 					case 'A':
-						if ((currentDirection != Direction::down) || (bodySize < 2)) {
-							newDirection = Direction::up;
+						if (can_turn_y) {
+							snake_direction = pos_t(0, game_size.y - 1);
 						}
 						break;
 					case 'B':
-						if ((currentDirection != Direction::up) || (bodySize < 2)) {
-							newDirection = Direction::down;
+						if (can_turn_y) {
+							snake_direction = pos_t(0, 1);
 						}
 						break;
 					case 'C':
-						if ((currentDirection != Direction::left) || (bodySize < 2)) {
-							newDirection = Direction::right;
+						if (can_turn_x) {
+							snake_direction = pos_t(1, 0);
 						}
 						break;
 					case 'D':
-						if ((currentDirection != Direction::right) || (bodySize < 2)) {
-							newDirection = Direction::left;
+						if (can_turn_x) {
+							snake_direction = pos_t(game_size.x - 1, 0);
 						}
+					}
 				}
 			}
 		}
-		currentDirection = newDirection;
-	}
+	})();
 
-	std::cout << "\x1b[2K\x1b[0G";
-	if (!gameOver) {
-		std::cout << "You win! ";
+	std::print("\x1B[0m\x1B[{}H\x1B[2K", game_size.y + 2);
+	if (win) {
+		std::fputs("You win! ", stdout);
 	}
-	std::cout << "Press any key to exit";
-	std::cout.flush();
-	std::this_thread::sleep_for(std::chrono::seconds(1));
-	while (readCharacter());
-	fcntl(STDIN_FILENO, F_SETFL, blocking);
-	std::cin.get();
-
-	tcsetattr(STDIN_FILENO, TCSANOW, &cooked);
-	std::cout << "\x1b[?25h\x1b[?47l\x1b[u";
+	std::fputs("Press any key to exit", stdout);
+	std::fflush(stdout);
+	std::this_thread::sleep_for(500ms);
+	while (std::getchar() > 0);
+	::fcntl(STDIN_FILENO, F_SETFL, block_mode);
+	std::getchar();
+	::tcsetattr(STDIN_FILENO, TCSANOW, &cooked_mode);
+	std::fputs("\x1B[?25h\x1B[?47l\x1B[u", stdout);
 }
