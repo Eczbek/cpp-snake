@@ -2,6 +2,7 @@
 A text-based snake game
 
 ## Usage
+Requires a Unix platform and a C++23 compiler.
 ```bash
 git clone https://github.com/Eczbek/cpp-snake
 cd cpp-snake
