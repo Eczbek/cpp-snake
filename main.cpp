@@ -24,7 +24,7 @@ int main() {
 
 	static constexpr xieite::vec2<int> game_size = { 20, 20 };
 
-	const auto set_color_at = [&term](xieite::vec2<int> pos, const xieite::color3& color) noexcept -> void {
+	const auto set_color_at = [&term](xieite::vec2<int> pos, const xieite::color3& color) -> void {
 		term.set_cursor(pos.y + 1, pos.x * 2);
 		term.bg(color);
 		std::fputs("  ", term.out);
@@ -41,7 +41,7 @@ int main() {
 	std::fputs("Use arrow keys to move, press Q to quit", term.out);
 
 	const bool win = ([&term, set_color_at] -> bool {
-		const auto rand_pos = [] static noexcept -> xieite::vec2<int> {
+		const auto rand_pos = [] static -> xieite::vec2<int> {
 			thread_local auto rng = std::mt19937(std::random_device()());
 			return xieite::vec2<int>(
 				std::uniform_int_distribution<int>(0, game_size.x - 1)(rng),
