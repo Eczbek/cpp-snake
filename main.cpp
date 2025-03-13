@@ -24,29 +24,30 @@ int main() {
 
 	static constexpr xieite::vec2<int> game_size = { 20, 20 };
 
-	const auto set_color_at = [&term](xieite::vec2<int> pos, const xieite::color3& color) -> void {
-		term.set_cursor(pos.y + 1, pos.x * 2);
-		term.bg(color);
-		std::fputs("  ", term.out);
-	};
-
 	term.clear_screen();
-	for (int x = 0; x < game_size.x; ++x) {
-		for (int y = 0; y < game_size.y; ++y) {
-			set_color_at({ x, y }, 0x007FFF);
-		}
+	term.set_cursor(1, 0);
+	term.bg({ 0, 127, 255 });
+	for (int y = 0; y < game_size.y; ++y) {
+		std::fputs(std::string(game_size.x * 2, ' ').c_str(), term.out);
+		std::fputs("\v\r", term.out);
 	}
 	term.reset_style();
 	term.set_cursor(game_size.y + 1, 0);
 	std::fputs("Use arrow keys to move, press Q to quit", term.out);
 
-	const bool win = ([&term, set_color_at] -> bool {
+	const bool win = ([&term] -> bool {
 		const auto rand_pos = [] static -> xieite::vec2<int> {
 			thread_local auto rng = std::mt19937(std::random_device()());
 			return xieite::vec2<int>(
 				std::uniform_int_distribution<int>(0, game_size.x - 1)(rng),
 				std::uniform_int_distribution<int>(0, game_size.y - 1)(rng)
 			);
+		};
+
+		const auto set_color_at = [&term](xieite::vec2<int> pos, const xieite::color3& color) -> void {
+			term.set_cursor(pos.y + 1, pos.x * 2);
+			term.bg(color);
+			std::fputs("  ", term.out);
 		};
 
 		xieite::vec2<int> apple = rand_pos();
